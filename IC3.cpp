@@ -163,7 +163,16 @@ namespace IC3 {
     bool check() {
       startTime = time();  // stats
       while (true) {
-        if (verbose > 1) cout << "Level " << k << endl;
+        
+        if (verbose > 1) {
+            cout << "[Frames] ";
+            for (size_t i = 0; i <= k; ++i) {
+                cout << "F" << i;
+                if (i < k) cout << ", ";
+            }
+            cout << "   (current frontier: F" << k << ")" << endl;
+        }
+
         extend();                         // push frontier frame
         if (!strengthen()) return false;  // strengthen to remove bad successors
         if (propagate()) return true;     // propagate clauses; check for proof
