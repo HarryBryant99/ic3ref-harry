@@ -1,5 +1,5 @@
 /*********************************************************************
-/Copyright (c) 2013, Aaron Bradley
+Copyright (c) 2013, Aaron Bradley
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -163,15 +163,14 @@ namespace IC3 {
     bool check() {
       startTime = time();  // stats
       while (true) {
-
-	if (verbose > 1) {
-    		cout << "Frames: ";
-    		for (size_t i = 0; i <= k+1; ++i) {
-        		cout << "F" << i;
-        		if (i < k+1) cout << ", ";
-    			}
-    		cout << "   (frontier: F" << k << ")" << endl;
-	}
+                      
+        if (verbose > 1) {
+            cout << "==== IC3 Iteration: k = " << k << " ====" << endl;
+            cout << "Frames: ";
+            for (size_t i = 0; i <= k; ++i)
+                cout << "F" << i << " ";
+            cout << endl;
+        }
 
         extend();                         // push frontier frame
         if (!strengthen()) return false;  // strengthen to remove bad successors
@@ -302,27 +301,12 @@ namespace IC3 {
     struct Frame {
       size_t k;             // steps from initial state
       CubeSet borderCubes;  // additional cubes in this and previous frames
-      vector<LitVec> clauses; // Clauses used
       Minisat::Solver * consecution;
     };
     vector<Frame> frames;
 
     Minisat::Solver * lifts;
     Minisat::Lit notInvConstraints;
-
-    void printFrameClauses(size_t i) {
-      cout << "=== Frame F" << i << " clauses ===" << endl;
-      for (vector<LitVec>::const_iterator it = frames[i].clauses.begin();
-          it != frames[i].clauses.end(); ++it) {
-
-        for (LitVec::const_iterator lit = it->begin();
-            lit != it->end(); ++lit) {
-
-          cout << model.stringOfLit(*lit) << " ";
-        }
-        cout << endl;
-      }
-    }
 
     // Push a new Frame.
     void extend() {
@@ -335,25 +319,7 @@ namespace IC3 {
           fr.consecution->random_seed = rand();
           fr.consecution->rnd_init_act = true;
         }
-        
-        if (fr.k == 0) {
-          model.loadInitialCondition(*fr.consecution);
-
-          if (verbose > 1) {
-            cout << "[F0 initial clauses]" << endl;
-            for (LitVec::const_iterator i = model.initialCondition().begin();
-                i != model.initialCondition().end(); ++i) {
-
-              cout << "  " << model.stringOfLit(*i) << endl;
-
-              // store as unit clause
-              LitVec clause;
-              clause.push_back(*i);
-              fr.clauses.push_back(clause);
-            }
-          }
-        }
-
+        if (fr.k == 0) model.loadInitialCondition(*fr.consecution);
         model.loadTransitionRelation(*fr.consecution);
       }
     }
@@ -683,42 +649,13 @@ namespace IC3 {
       sort(cube.begin(), cube.end());
       pair<CubeSet::iterator, bool> rv = frames[level].borderCubes.insert(cube);
       if (!rv.second) return;
-//      if (!silent && verbose > 1) 
-//        cout << level << ": " << stringOfLitVec(cube) << endl;
-//	  cout << "[addCube] F" << level
-//    	       << " blocks: " << stringOfLitVec(cube)
-//               << endl;
-
-
-		if (!silent && verbose > 1) {
-    			cout << "[addCube] F" << level << endl;
-
-			// print cube
-			cout << "  cube (blocked region): ";
-			for (LitVec::const_iterator i = cube.begin(); i != cube.end(); ++i)
-			    cout << model.stringOfLit(*i) << " ";
-			cout << endl;
-
-			// print clause = negation
-    			cout << "  clause (added):        ";
-    			for (LitVec::const_iterator i = cube.begin(); i != cube.end(); ++i)
-        			cout << model.stringOfLit(~*i) << " ";
-			cout << endl;
-		}
-
+      if (!silent && verbose > 1) 
+        cout << level << ": " << stringOfLitVec(cube) << endl;
       earliest = min(earliest, level);
       MSLitVec cls;
       cls.capacity(cube.size());
       for (LitVec::const_iterator i = cube.begin(); i != cube.end(); ++i)
         cls.push(~*i);
-
-        // store clause for printing
-        LitVec clause;
-        for (LitVec::const_iterator i = cube.begin(); i != cube.end(); ++i)
-          clause.push_back(~*i);
-
-        frames[level].clauses.push_back(clause);
-
       for (size_t i = toAll ? 1 : level; i <= level; ++i)
         frames[i].consecution->addClause(cls);
       if (toAll && !silent) updateLitOrder(cube, level);
