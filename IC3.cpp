@@ -335,22 +335,13 @@ namespace IC3 {
           fr.consecution->random_seed = rand();
           fr.consecution->rnd_init_act = true;
         }
-        
+           
         if (fr.k == 0) {
           model.loadInitialCondition(*fr.consecution);
 
           if (verbose > 1) {
-            cout << "[F0 initial clauses]" << endl;
-            for (LitVec::const_iterator i = model.initialCondition().begin();
-                i != model.initialCondition().end(); ++i) {
-
-              cout << "  " << model.stringOfLit(*i) << endl;
-
-              // store as unit clause
-              LitVec clause;
-              clause.push_back(*i);
-              fr.clauses.push_back(clause);
-            }
+            cout << "[F0 initial clauses loaded into solver]" << endl;
+            cout << "  (cannot directly print: Model does not expose them)" << endl;
           }
         }
 
