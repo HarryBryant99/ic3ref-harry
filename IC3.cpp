@@ -334,7 +334,9 @@ namespace IC3 {
         model.loadInitialCondition(*tmp);
 
         // load T
+        model.printTransition = false;
         model.loadTransitionRelation(*tmp);
+        model.printTransition = true;
 
         // test l' = true
         Minisat::Lit lp = model.primeLit(it->lit(false));

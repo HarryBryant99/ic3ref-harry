@@ -34,6 +34,8 @@ Model::~Model() {
   if (sslv) delete sslv;
 }
 
+bool printTransition = true;
+
 const Var & Model::primeVar(const Var & v, Minisat::SimpSolver * slv) {
   // var for false
   if (v.index() == 0) return v;
@@ -161,14 +163,16 @@ void Model::loadTransitionRelation(Minisat::Solver & slv, bool primeConstraints)
        c != sslv->clausesEnd(); ++c) {
     const Minisat::Clause & cls = *c;
 
-    //print the transition relation
-    cout << "[T clause] ";
-    for (int i = 0; i < cls.size(); ++i) {
-      Minisat::Lit lit = cls[i];
-      cout << (Minisat::sign(lit) ? "~" : "")
-          << vars[Minisat::var(lit)].name() << " ";
+    //print the transition relation    
+    if (printTransition) {
+      cout << "[T clause] ";
+      for (int i = 0; i < cls.size(); ++i) {
+        Minisat::Lit lit = cls[i];
+        cout << (Minisat::sign(lit) ? "~" : "")
+            << vars[Minisat::var(lit)].name() << " ";
+      }
+      cout << endl;
     }
-    cout << endl;
 
     Minisat::vec<Minisat::Lit> cls_;
     for (int i = 0; i < cls.size(); ++i)
