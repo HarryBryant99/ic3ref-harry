@@ -324,6 +324,18 @@ namespace IC3 {
       }
     }
 
+    void addClauseToFrame(Frame& fr, const LitVec& clause) {
+      // store it
+      fr.clauses.push_back(clause);
+
+      // convert to Minisat format
+      MSLitVec cls;
+      for (auto &lit : clause)
+        cls.push(lit);
+
+      fr.consecution->addClause_(cls);
+    }
+
     // Push a new Frame.
     void extend() {
       while (frames.size() < k+2) {
@@ -340,8 +352,20 @@ namespace IC3 {
           model.loadInitialCondition(*fr.consecution);
 
           if (verbose > 1) {
-            cout << "[F0 initial clauses loaded into solver]" << endl;
-            cout << "  (cannot directly print: Model does not expose them)" << endl;
+            cout << "[F0 initial clauses]" << endl;
+
+            const LitVec& init = model.getInit();
+
+            for (LitVec::const_iterator i = init.begin();
+                i != init.end(); ++i) {
+
+              cout << "  " << model.stringOfLit(*i) << endl;
+
+              // store as clause
+              LitVec clause;
+              clause.push_back(*i);
+              fr.clauses.push_back(clause);
+            }
           }
         }
 

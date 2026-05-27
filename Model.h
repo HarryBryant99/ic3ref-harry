@@ -131,6 +131,8 @@ public:
     return ss.str();
   }
 
+  const LitVec& getInit() const { return init; }
+
   // Returns the primed Var/Minisat::Lit for the given
   // Var/Minisat::Lit.  Once lockPrimes() is called, primeVar() fails
   // (with an assertion violation) if it is asked to create a new
