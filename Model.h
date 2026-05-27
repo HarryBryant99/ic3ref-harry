@@ -87,6 +87,9 @@ typedef set<Minisat::Lit> LitSet;
 // variables of any solver created through newSolver().
 class Model {
 public:
+
+  bool printTransition;
+
   // Construct a model from a vector of variables, indices indicating
   // divisions between variable types, constraints, next-state
   // functions, the error, and the AND table, closely reflecting the
@@ -94,7 +97,7 @@ public:
   Model(vector<Var> _vars, 
         size_t _inputs, size_t _latches, size_t _reps, 
         LitVec _init, LitVec _constraints, LitVec _nextStateFns, 
-        Minisat::Lit _err, AigVec _aig) :
+        Minisat::Lit _err, AigVec _aig, printTransition(true)) :
     vars(_vars), 
     inputs(_inputs), latches(_latches), reps(_reps),
     primes(_vars.size()), primesUnlocked(true), aig(_aig),

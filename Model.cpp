@@ -34,8 +34,6 @@ Model::~Model() {
   if (sslv) delete sslv;
 }
 
-bool printTransition = true;
-
 const Var & Model::primeVar(const Var & v, Minisat::SimpSolver * slv) {
   // var for false
   if (v.index() == 0) return v;
