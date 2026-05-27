@@ -164,14 +164,10 @@ namespace IC3 {
       startTime = time();  // stats
       while (true) {
 
-	if (verbose > 1) {
-    		cout << "Frames: ";
-    		for (size_t i = 0; i <= k+1; ++i) {
-        		cout << "F" << i;
-        		if (i < k+1) cout << ", ";
-    			}
-    		cout << "   (frontier: F" << k << ")" << endl;
-	}
+      if (verbose > 1) {
+        for (size_t i = 0; i <= k+1; ++i)
+          printFrameClauses(i);
+      }
 
         extend();                         // push frontier frame
         if (!strengthen()) return false;  // strengthen to remove bad successors
@@ -312,14 +308,25 @@ namespace IC3 {
 
     void printFrameClauses(size_t i) {
       cout << "=== Frame F" << i << " clauses ===" << endl;
-      for (vector<LitVec>::const_iterator it = frames[i].clauses.begin();
-          it != frames[i].clauses.end(); ++it) {
 
-        for (LitVec::const_iterator lit = it->begin();
-            lit != it->end(); ++lit) {
-
-          cout << model.stringOfLit(*lit) << " ";
+      if (i == 0) {
+        // already printed separately
+        for (auto &c : frames[i].clauses) {
+          for (auto &lit : c)
+            cout << model.stringOfLit(lit) << " ";
+          cout << endl;
         }
+        return;
+      }
+
+      if (frames[i].clauses.empty()) {
+        cout << "  (no learned clauses)" << endl;
+        return;
+      }
+
+      for (auto &c : frames[i].clauses) {
+        for (auto &lit : c)
+          cout << model.stringOfLit(lit) << " ";
         cout << endl;
       }
     }
