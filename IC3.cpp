@@ -164,12 +164,13 @@ namespace IC3 {
       startTime = time();  // stats
       while (true) {
 
-      if (verbose > 1) {
-        for (size_t i = 0; i <= k+1; ++i)
-          printFrameClauses(i);
-      }
-
         extend();                         // push frontier frame
+
+        if (verbose > 1) {
+          for (size_t i = 0; i < frames.size(); ++i)
+            printFrameClauses(i);
+        }
+
         if (!strengthen()) return false;  // strengthen to remove bad successors
         if (propagate()) return true;     // propagate clauses; check for proof
         printStats();
@@ -353,21 +354,18 @@ namespace IC3 {
         if (fr.k == 0) {
           model.loadInitialCondition(*fr.consecution);
 
+          const LitVec& init = model.getInit();
+
+          for (auto it = init.begin(); it != init.end(); ++it) {
+            LitVec clause;
+            clause.push_back(*it);
+            fr.clauses.push_back(clause);
+          }
+
           if (verbose > 1) {
             cout << "[F0 initial clauses]" << endl;
-
-            const LitVec& init = model.getInit();
-
-            for (LitVec::const_iterator i = init.begin();
-                i != init.end(); ++i) {
-
-              cout << "  " << model.stringOfLit(*i) << endl;
-
-              // store as clause
-              LitVec clause;
-              clause.push_back(*i);
-              fr.clauses.push_back(clause);
-            }
+            for (auto it = init.begin(); it != init.end(); ++it)
+              cout << "  " << model.stringOfLit(*it) << endl;
           }
         }
 
