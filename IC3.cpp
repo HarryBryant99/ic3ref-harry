@@ -309,23 +309,18 @@ namespace IC3 {
     void printFrameClauses(size_t i) {
       cout << "=== Frame F" << i << " clauses ===" << endl;
 
-      if (i == 0) {
-        // already printed separately
-        for (auto &c : frames[i].clauses) {
-          for (auto &lit : c)
-            cout << model.stringOfLit(lit) << " ";
-          cout << endl;
-        }
+      if (i >= frames.size()) {
+        cout << "  (frame not initialised)" << endl;
         return;
       }
 
       if (frames[i].clauses.empty()) {
-        cout << "  (no learned clauses)" << endl;
+        cout << "  (no clauses)" << endl;
         return;
       }
 
-      for (auto &c : frames[i].clauses) {
-        for (auto &lit : c)
+      for (const auto& c : frames[i].clauses) {
+        for (const auto& lit : c)
           cout << model.stringOfLit(lit) << " ";
         cout << endl;
       }
