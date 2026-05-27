@@ -174,20 +174,27 @@ namespace IC3 {
         if (!strengthen()) return false;  // strengthen to remove bad successors        
         //if (propagate()) return true;     // propagate clauses; check for proof
         
+        
         if (propagate()) {
+
           if (verbose > 1) {
-            extractInvariantFromT();
+
+            cout << "\n===== FINAL INVARIANT =====" << endl;
+
+            // Case 1: IC3 actually learned clauses
+            if (!frames[k+1].clauses.empty()) {
+              printFullInvariant(k+1);
+            }
+            // Case 2: IC3 learned nothing → extract from T
+            else {
+              extractInvariantIC3Style();
+            }
           }
+
           return true;
         }
 
         printStats();
-
-        if (verbose > 1) {
-          cout << "\n===== FULL INVARIANTS (iteration) =====" << endl;
-          for (size_t i = 0; i <= k+1; ++i)
-            printFullInvariant(i);
-        }
 
         ++k;                              // increment frontier
       }
@@ -322,23 +329,19 @@ namespace IC3 {
     Minisat::Solver * lifts;
     Minisat::Lit notInvConstraints;
 
-    void extractInvariantFromT() {
-      cout << "\n=== Extracted invariant from (F0 ∧ T) ===" << endl;
-
-      Frame& fr = frames[0];
+    void extractInvariantIC3Style() {
+      cout << "\n=== IC3-derived invariant ===" << endl;
 
       for (auto it = model.beginLatches(); it != model.endLatches(); ++it) {
+
         Minisat::Solver* tmp = model.newSolver();
 
-        // load F0
-        model.loadInitialCondition(*tmp);
-
-        // load T
+        // Load transition relation only
         model.printTransition = false;
         model.loadTransitionRelation(*tmp);
         model.printTransition = true;
 
-        // test l' = true
+        // Check if variable can ever become true in next step
         Minisat::Lit lp = model.primeLit(it->lit(false));
 
         bool sat = tmp->solve(lp);
