@@ -184,6 +184,13 @@ namespace IC3 {
         }
 
         printStats();
+
+        if (verbose > 1) {
+          cout << "\n===== FULL INVARIANTS (iteration) =====" << endl;
+          for (size_t i = 0; i <= k+1; ++i)
+            printFullInvariant(i);
+        }
+
         ++k;                              // increment frontier
       }
     }
