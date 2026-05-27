@@ -198,6 +198,8 @@ namespace IC3 {
 
         ++k;                              // increment frontier
       }
+
+      enumerateReachableStates();
     }
 
     // Follows and prints chain of states from cexState forward.
@@ -351,6 +353,37 @@ namespace IC3 {
         }
 
         delete tmp;
+      }
+    }
+
+    void enumerateReachableStates() {
+      set<vector<int>> visited;
+      queue<vector<int>> q;
+
+      // initial state: from F0
+      vector<int> init = {0,0,0,0}; // l0,l1,l2,l3
+      q.push(init);
+      visited.insert(init);
+
+      while (!q.empty()) {
+        auto s = q.front(); q.pop();
+
+        auto next = computeNextState(s); // evaluate T
+
+        if (!visited.count(next)) {
+          visited.insert(next);
+          q.push(next);
+        }
+      }
+
+      cout << "Reachable states:\n";
+      for (auto &st : visited) {
+        cout << "(";
+        for (int i = 0; i < st.size(); ++i) {
+          cout << st[i];
+          if (i+1 < st.size()) cout << ",";
+        }
+        cout << ")\n";
       }
     }
 
