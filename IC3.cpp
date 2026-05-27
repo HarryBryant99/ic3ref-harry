@@ -171,8 +171,18 @@ namespace IC3 {
             printFrameClauses(i);
         }
 
-        if (!strengthen()) return false;  // strengthen to remove bad successors
-        if (propagate()) return true;     // propagate clauses; check for proof
+        if (!strengthen()) return false;  // strengthen to remove bad successors        
+        //if (propagate()) return true;     // propagate clauses; check for proof
+
+        if (propagate()) {
+          if (verbose > 1) {
+            cout << "\n===== FULL INVARIANTS =====" << endl;
+            for (size_t i = 0; i <= k+1; ++i)
+              printFullInvariant(i);
+          }
+          return true;
+        }
+
         printStats();
         ++k;                              // increment frontier
       }
@@ -306,6 +316,31 @@ namespace IC3 {
 
     Minisat::Solver * lifts;
     Minisat::Lit notInvConstraints;
+
+    void printFullInvariant(size_t level) {
+      cout << "=== Full invariant (F" << level << ") ===" << endl;
+
+      if (level == 0) {
+        for (auto &c : frames[0].clauses) {
+          for (auto &lit : c)
+            cout << model.stringOfLit(lit) << " ";
+          cout << endl;
+        }
+      }
+
+      for (size_t i = 1; i <= level; ++i) {
+        for (auto &c : frames[i].clauses) {
+          cout << "(";
+          for (size_t j = 0; j < c.size(); ++j) {
+            cout << model.stringOfLit(c[j]);
+            if (j + 1 < c.size()) cout << " ∨ ";
+          }
+          cout << ")" << endl;
+        }
+      }
+
+      cout << "AND T (transition relation)" << endl;
+    }
 
     void printFrameClauses(size_t i) {
       cout << "=== Frame F" << i << " clauses ===" << endl;
