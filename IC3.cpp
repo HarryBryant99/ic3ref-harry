@@ -173,12 +173,10 @@ namespace IC3 {
 
         if (!strengthen()) return false;  // strengthen to remove bad successors        
         //if (propagate()) return true;     // propagate clauses; check for proof
-
+        
         if (propagate()) {
           if (verbose > 1) {
-            cout << "\n===== FULL INVARIANTS =====" << endl;
-            for (size_t i = 0; i <= k+1; ++i)
-              printFullInvariant(i);
+            extractInvariantFromT();
           }
           return true;
         }
@@ -323,6 +321,33 @@ namespace IC3 {
 
     Minisat::Solver * lifts;
     Minisat::Lit notInvConstraints;
+
+    void extractInvariantFromT() {
+      cout << "\n=== Extracted invariant from (F0 ∧ T) ===" << endl;
+
+      Frame& fr = frames[0];
+
+      for (auto it = model.beginLatches(); it != model.endLatches(); ++it) {
+        Minisat::Solver* tmp = model.newSolver();
+
+        // load F0
+        model.loadInitialCondition(*tmp);
+
+        // load T
+        model.loadTransitionRelation(*tmp);
+
+        // test l' = true
+        Minisat::Lit lp = model.primeLit(it->lit(false));
+
+        bool sat = tmp->solve(lp);
+
+        if (!sat) {
+          cout << "~" << it->name() << endl;
+        }
+
+        delete tmp;
+      }
+    }
 
     void printFullInvariant(size_t level) {
       cout << "=== Full invariant (F" << level << ") ===" << endl;
