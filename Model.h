@@ -97,12 +97,12 @@ public:
   Model(vector<Var> _vars, 
         size_t _inputs, size_t _latches, size_t _reps, 
         LitVec _init, LitVec _constraints, LitVec _nextStateFns, 
-        Minisat::Lit _err, AigVec _aig, printTransition(true)) :
+        Minisat::Lit _err, AigVec _aig) :
     vars(_vars), 
     inputs(_inputs), latches(_latches), reps(_reps),
     primes(_vars.size()), primesUnlocked(true), aig(_aig),
     init(_init), constraints(_constraints), nextStateFns(_nextStateFns),
-    _error(_err), inits(NULL), sslv(NULL)
+    _error(_err), inits(NULL), sslv(NULL), printTransition(true)
   {
     // create primed inputs and latches in known region of vars
     for (size_t i = inputs; i < reps; ++i) {
