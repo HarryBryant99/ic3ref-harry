@@ -183,7 +183,7 @@ namespace IC3 {
 
             // Case 1: IC3 actually learned clauses
             if (!frames[k+1].clauses.empty()) {
-              printFullInvariant(k+1);
+              printFinalInvariant(k+1);
             }
             // Case 2: IC3 learned nothing → extract from T
             else {
@@ -329,54 +329,37 @@ namespace IC3 {
     Minisat::Solver * lifts;
     Minisat::Lit notInvConstraints;
 
-    void extractInvariantIC3Style() {
-      cout << "\n=== IC3-derived invariant ===" << endl;
+    void printFinalInvariant(size_t level) {
+      cout << "=== FINAL INVARIANT (F" << level << ") ===" << endl;
 
-      for (auto it = model.beginLatches(); it != model.endLatches(); ++it) {
-
-        Minisat::Solver* tmp = model.newSolver();
-
-        // Load transition relation only
-        model.printTransition = false;
-        model.loadTransitionRelation(*tmp);
-        model.printTransition = true;
-
-        // Check if variable can ever become true in next step
-        Minisat::Lit lp = model.primeLit(it->lit(false));
-
-        bool sat = tmp->solve(lp);
-
-        if (!sat) {
-          cout << "~" << it->name() << endl;
-        }
-
-        delete tmp;
-      }
-    }
-
-    void printFullInvariant(size_t level) {
-      cout << "=== Full invariant (F" << level << ") ===" << endl;
-
-      if (level == 0) {
-        for (auto &c : frames[0].clauses) {
-          for (auto &lit : c)
-            cout << model.stringOfLit(lit) << " ";
-          cout << endl;
-        }
+      if (level >= frames.size()) {
+        cout << "(invalid level)" << endl;
+        return;
       }
 
-      for (size_t i = 1; i <= level; ++i) {
-        for (auto &c : frames[i].clauses) {
-          cout << "(";
-          for (size_t j = 0; j < c.size(); ++j) {
-            cout << model.stringOfLit(c[j]);
-            if (j + 1 < c.size()) cout << " ∨ ";
-          }
-          cout << ")" << endl;
-        }
+      Frame &fr = frames[level];
+
+      if (fr.clauses.empty()) {
+        cout << "(no learned clauses — invariant from T)" << endl;
+        return;
       }
 
-      cout << "AND T (transition relation)" << endl;
+      // optionally remove duplicates
+      set<string> seen;
+
+      for (auto &c : fr.clauses) {
+        stringstream key;
+
+        cout << "(";
+        for (size_t j = 0; j < c.size(); ++j) {
+          string litStr = model.stringOfLit(c[j]);
+          key << litStr << " ";
+
+          cout << litStr;
+          if (j + 1 < c.size()) cout << " ∨ ";
+        }
+        cout << ")" << endl;
+      }
     }
 
     void printFrameClauses(size_t i) {
