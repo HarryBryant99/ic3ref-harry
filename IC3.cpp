@@ -329,38 +329,63 @@ namespace IC3 {
     Minisat::Solver * lifts;
     Minisat::Lit notInvConstraints;
 
-    void printFinalInvariant(size_t level) {
-      cout << "=== FINAL INVARIANT (F" << level << ") ===" << endl;
+    void extractInvariantIC3Style() {
+      cout << "\n=== IC3-derived invariant ===" << endl;
 
-      if (level >= frames.size()) {
-        cout << "(invalid level)" << endl;
-        return;
-      }
+      for (auto it = model.beginLatches(); it != model.endLatches(); ++it) {
 
-      Frame &fr = frames[level];
+        Minisat::Solver* tmp = model.newSolver();
 
-      if (fr.clauses.empty()) {
-        cout << "(no learned clauses — invariant from T)" << endl;
-        return;
-      }
+        // Load transition relation only
+        model.printTransition = false;
+        model.loadTransitionRelation(*tmp);
+        model.printTransition = true;
 
-      // optionally remove duplicates
-      set<string> seen;
+        // Check if variable can ever become true in next step
+        Minisat::Lit lp = model.primeLit(it->lit(false));
 
-      for (auto &c : fr.clauses) {
-        stringstream key;
+        bool sat = tmp->solve(lp);
 
-        cout << "(";
-        for (size_t j = 0; j < c.size(); ++j) {
-          string litStr = model.stringOfLit(c[j]);
-          key << litStr << " ";
-
-          cout << litStr;
-          if (j + 1 < c.size()) cout << " ∨ ";
+        if (!sat) {
+          cout << "~" << it->name() << endl;
         }
-        cout << ")" << endl;
+
+        delete tmp;
       }
     }
+
+  void printFinalInvariant(size_t level) {
+    cout << "=== FINAL INVARIANT (F" << level << ") ===" << endl;
+
+    if (level >= frames.size()) {
+      cout << "(invalid level)" << endl;
+      return;
+    }
+
+    Frame &fr = frames[level];
+
+    if (fr.clauses.empty()) {
+      cout << "(no learned clauses — invariant from T)" << endl;
+      return;
+    }
+
+    // optionally remove duplicates
+    set<string> seen;
+
+    for (auto &c : fr.clauses) {
+      stringstream key;
+
+      cout << "(";
+      for (size_t j = 0; j < c.size(); ++j) {
+        string litStr = model.stringOfLit(c[j]);
+        key << litStr << " ";
+
+        cout << litStr;
+        if (j + 1 < c.size()) cout << " ∨ ";
+      }
+      cout << ")" << endl;
+    }
+  }
 
     void printFrameClauses(size_t i) {
       cout << "=== Frame F" << i << " clauses ===" << endl;
