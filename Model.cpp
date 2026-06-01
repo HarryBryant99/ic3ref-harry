@@ -162,15 +162,15 @@ void Model::loadTransitionRelation(Minisat::Solver & slv, bool primeConstraints)
     const Minisat::Clause & cls = *c;
 
     //print the transition relation    
-    if (printTransition) {
-      cout << "[T clause] ";
-      for (int i = 0; i < cls.size(); ++i) {
-        Minisat::Lit lit = cls[i];
-        cout << (Minisat::sign(lit) ? "~" : "")
-            << vars[Minisat::var(lit)].name() << " ";
-      }
-      cout << endl;
-    }
+    //if (printTransition) {
+    //  cout << "[T clause] ";
+    //  for (int i = 0; i < cls.size(); ++i) {
+    //    Minisat::Lit lit = cls[i];
+    //    cout << (Minisat::sign(lit) ? "~" : "")
+    //        << vars[Minisat::var(lit)].name() << " ";
+    //  }
+    //  cout << endl;
+    //}
 
     Minisat::vec<Minisat::Lit> cls_;
     for (int i = 0; i < cls.size(); ++i)

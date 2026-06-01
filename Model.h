@@ -88,8 +88,6 @@ typedef set<Minisat::Lit> LitSet;
 class Model {
 public:
 
-  bool printTransition;
-
   // Construct a model from a vector of variables, indices indicating
   // divisions between variable types, constraints, next-state
   // functions, the error, and the AND table, closely reflecting the
@@ -102,7 +100,7 @@ public:
     inputs(_inputs), latches(_latches), reps(_reps),
     primes(_vars.size()), primesUnlocked(true), aig(_aig),
     init(_init), constraints(_constraints), nextStateFns(_nextStateFns),
-    _error(_err), inits(NULL), sslv(NULL), printTransition(false)
+    _error(_err), inits(NULL), sslv(NULL)
   {
     // create primed inputs and latches in known region of vars
     for (size_t i = inputs; i < reps; ++i) {
