@@ -327,7 +327,7 @@ namespace IC3 {
         // Load transition relation only
         model.printTransition = false;
         model.loadTransitionRelation(*tmp);
-        model.printTransition = true;
+        model.printTransition = false;
 
         // Check if variable can ever become true in next step
         Minisat::Lit lp = model.primeLit(it->lit(false));
