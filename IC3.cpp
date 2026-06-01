@@ -178,8 +178,9 @@ namespace IC3 {
         if (propagate()) {
 
             cout << "\n===== FINAL INVARIANT =====" << endl;
-
+            
             printFinalInvariant(k+1);
+            extractReachableInvariant();
 
             return true;
         }
@@ -316,6 +317,69 @@ namespace IC3 {
 
     Minisat::Solver * lifts;
     Minisat::Lit notInvConstraints;
+
+    void extractReachableInvariant() {
+        cout << "\n=== REACHABLE STATE INVARIANT ===" << endl;
+
+        // Use final frame
+        Frame &fr = frames[k];
+
+        size_t count = 0;
+
+        for (auto it = model.beginLatches(); it != model.endLatches(); ++it) {
+
+            const Var &v = *it;
+
+            Minisat::Solver* tmp = model.newSolver();
+
+            // Load transition relation
+            bool old = model.printTransition;
+            model.printTransition = false;
+            model.loadTransitionRelation(*tmp);
+            model.printTransition = old;
+
+            // Add all clauses from final frame (IC3 invariant)
+            for (auto &c : fr.clauses) {
+                Minisat::vec<Minisat::Lit> cls;
+                for (auto &lit : c)
+                    cls.push(lit);
+                tmp->addClause_(cls);
+            }
+
+            // Check if latch can be TRUE in next state
+            Minisat::Lit lp = model.primeLit(v.lit(false));  // l'
+
+            bool sat_true = tmp->solve(lp);
+
+            // Check if latch can be FALSE in next state
+            Minisat::Lit ln = model.primeLit(v.lit(true));   // ~l'
+
+            bool sat_false = tmp->solve(ln);
+
+            delete tmp;
+
+            // Interpret results
+            if (!sat_true) {
+                // l' is impossible → ~l invariant
+                cout << "~" << v.name()
+                    << "  [aig=" << model.aigerLitOf(v.lit(true)) << "]"
+                    << endl;
+                count++;
+            }
+
+            if (!sat_false) {
+                // ~l' is impossible → l invariant
+                cout << v.name()
+                    << "  [aig=" << model.aigerLitOf(v.lit(false)) << "]"
+                    << endl;
+                count++;
+            }
+        }
+
+        if (count == 0) {
+            cout << "(no additional inductive literals found)" << endl;
+        }
+    }
 
     void extractInvariantIC3Style() {
       cout << "\n=== IC3-derived invariant ===" << endl;
