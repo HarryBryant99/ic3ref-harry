@@ -164,42 +164,27 @@ namespace IC3 {
       startTime = time();  // stats
       while (true) {
 
-        extend();                         // push frontier frame
+        extend();
 
-        if (verbose > 1) {
-          for (size_t i = 0; i < frames.size(); ++i)
-            printFrameClauses(i);
-        }
+        if (verbose > 1)
+            printAllFrames("AFTER EXTEND");
 
-        if (!strengthen()) return false;  // strengthen to remove bad successors        
-        //if (propagate()) return true;     // propagate clauses; check for proof
-        
-        
+        if (!strengthen())
+            return false;
+
+        if (verbose > 1)
+            printAllFrames("AFTER STRENGTHEN");
+
         if (propagate()) {
-
-          if (verbose > 1) {
 
             cout << "\n===== FINAL INVARIANT =====" << endl;
 
-            // Case 1: IC3 actually learned clauses
-            if (!frames[k+1].clauses.empty()) {
-              
-              printFinalInvariant(k+1);               // your stored IC3 clauses
-              printSolverInvariant(frames[k].consecution); // full inductive invariant
+            printFinalInvariant(k+1);
 
-            }
-            // Case 2: IC3 learned nothing → extract from T
-            else {
-              extractInvariantIC3Style();
-            }
-          }
-
-          return true;
+            return true;
         }
 
-        printStats();
-
-        ++k;                              // increment frontier
+        ++k;                             // increment frontier
       }
     }
 
@@ -408,24 +393,28 @@ namespace IC3 {
     }
   }
 
+  void printAllFrames(const string& title = "") {
+      if (!title.empty())
+          cout << "\n=== " << title << " ===" << endl;
+
+      for (size_t i = 0; i < frames.size(); ++i) {
+          printFrameClauses(i);
+      }
+  }
+
     void printFrameClauses(size_t i) {
-      cout << "=== Frame F" << i << " clauses ===" << endl;
+        cout << "=== Frame F" << i
+            << " (" << frames[i].clauses.size()
+            << " clauses) ===" << endl;
 
-      if (i >= frames.size()) {
-        cout << "  (frame not initialised)" << endl;
-        return;
-      }
-
-      if (frames[i].clauses.empty()) {
-        cout << "  (no clauses)" << endl;
-        return;
-      }
-
-      for (const auto& c : frames[i].clauses) {
-        for (const auto& lit : c)
-          cout << model.stringOfLit(lit) << " ";
-        cout << endl;
-      }
+        for (const auto& c : frames[i].clauses) {
+            cout << "  (";
+            for (size_t j = 0; j < c.size(); ++j) {
+                cout << model.stringOfLit(c[j]);
+                if (j + 1 < c.size()) cout << " ∨ ";
+            }
+            cout << ")" << endl;
+        }
     }
 
     void addClauseToFrame(Frame& fr, const LitVec& clause) {
@@ -855,33 +844,60 @@ namespace IC3 {
 
     // Process obligations according to priority.
     bool handleObligations(PriorityQueue obls) {
-      while (!obls.empty()) {
-        PriorityQueue::iterator obli = obls.begin();
-        Obligation obl = *obli;
-        LitVec core;
-        size_t predi;
-        // Is the obligation fulfilled?
-        if (consecution(obl.level, state(obl.state).latches, obl.state, 
-                        &core, &predi)) {
-          // Yes, so generalize and possibly produce a new obligation
-          // at a higher level.
-          obls.erase(obli);
-          size_t n = generalize(obl.level, core);
-          if (n <= k)
-            obls.insert(Obligation(obl.state, n, obl.depth));
+        while (!obls.empty()) {
+
+            PriorityQueue::iterator obli = obls.begin();
+            Obligation obl = *obli;
+
+            if (verbose > 1) {
+                cout << "\n[obligation]" << endl;
+                cout << "  level = " << obl.level
+                    << ", depth = " << obl.depth << endl;
+
+                cout << "  state: ";
+                for (auto &l : state(obl.state).latches)
+                    cout << model.stringOfLit(l) << " ";
+                cout << endl;
+            }
+
+            LitVec core;
+            size_t predi;
+
+            if (consecution(obl.level, state(obl.state).latches,
+                            obl.state, &core, &predi)) {
+
+                if (verbose > 1) {
+                    cout << "  SUCCESS: generalized to clause: ";
+                    for (auto &l : core)
+                        cout << model.stringOfLit(~l) << " ";
+                    cout << endl;
+                }
+
+                obls.erase(obli);
+
+                size_t n = generalize(obl.level, core);
+
+                if (n <= k)
+                    obls.insert(Obligation(obl.state, n, obl.depth));
+            }
+            else if (obl.level == 0) {
+
+                cout << "\n*** COUNTEREXAMPLE FOUND ***" << endl;
+
+                cexState = predi;
+                return false;
+            }
+            else {
+
+                if (verbose > 1) {
+                    cout << "  FAILED: moving to predecessor" << endl;
+                }
+
+                obls.insert(Obligation(predi, obl.level-1, obl.depth+1));
+            }
         }
-        else if (obl.level == 0) {
-          // No, in fact an initial state is a predecessor.
-          cexState = predi;
-          return false;
-        }
-        else {
-          ++nCTI;  // stats
-          // No, so focus on predecessor.
-          obls.insert(Obligation(predi, obl.level-1, obl.depth+1));
-        }
-      }
-      return true;
+
+        return true;
     }
 
     bool trivial;  // indicates whether strengthening was required
@@ -916,58 +932,88 @@ namespace IC3 {
     // strengthenings of the property.  See the four invariants of IC3
     // in the original paper.
     bool propagate() {
-      if (verbose > 1) cout << "propagate" << endl;
-      // 1. clean up: remove c in frame i if c appears in frame j when i < j
-      CubeSet all;
-      for (size_t i = k+1; i >= earliest; --i) {
-        Frame & fr = frames[i];
-        CubeSet rem, nall;
-        set_difference(fr.borderCubes.begin(), fr.borderCubes.end(),
-                       all.begin(), all.end(),
-                       inserter(rem, rem.end()), LitVecComp());
-        if (verbose > 1)
-          cout << i << " " << fr.borderCubes.size() << " " << rem.size() << " ";
-        fr.borderCubes.swap(rem);
-        set_union(rem.begin(), rem.end(),
-                  all.begin(), all.end(), 
-                  inserter(nall, nall.end()), LitVecComp());
-        all.swap(nall);
-        for (CubeSet::const_iterator i = fr.borderCubes.begin(); 
-             i != fr.borderCubes.end(); ++i)
-          assert (all.find(*i) != all.end());
-        if (verbose > 1)
-          cout << all.size() << endl;
-      }
-      // 2. check if each c in frame i can be pushed to frame j
-      for (size_t i = trivial ? k : 1; i <= k; ++i) {
-        int ckeep = 0, cprop = 0, cdrop = 0;
-        Frame & fr = frames[i];
-        for (CubeSet::iterator j = fr.borderCubes.begin(); 
-             j != fr.borderCubes.end();) {
-          LitVec core;
-          if (consecution(i, *j, 0, &core)) {
-            ++cprop;
-            // only add to frame i+1 unless the core is reduced
-            addCube(i+1, core, core.size() < j->size(), true);
-            CubeSet::iterator tmp = j;
-            ++j;
-            fr.borderCubes.erase(tmp);
-          }
-          else {
-            ++ckeep;
-            ++j;
-          }
+        if (verbose > 1) cout << "\n[PROPAGATE START]" << endl;
+
+        // 1. Remove duplicates across frames
+        CubeSet all;
+
+        for (size_t i = k+1; i >= earliest; --i) {
+            Frame & fr = frames[i];
+
+            CubeSet rem, nall;
+
+            set_difference(fr.borderCubes.begin(), fr.borderCubes.end(),
+                          all.begin(), all.end(),
+                          inserter(rem, rem.end()), LitVecComp());
+
+            fr.borderCubes.swap(rem);
+
+            set_union(rem.begin(), rem.end(),
+                      all.begin(), all.end(),
+                      inserter(nall, nall.end()), LitVecComp());
+
+            all.swap(nall);
         }
+
+        // 2. Propagate clauses
+        for (size_t i = 1; i <= k; ++i) {
+
+            Frame & fr = frames[i];
+
+            if (verbose > 1)
+                cout << "\n-- Checking propagation from F" << i << " --" << endl;
+
+            for (CubeSet::iterator j = fr.borderCubes.begin();
+                j != fr.borderCubes.end(); ) {
+
+                LitVec core;
+
+                if (consecution(i, *j, 0, &core)) {
+
+                    if (verbose > 1) {
+                        cout << "[propagate] F" << i
+                            << " -> F" << (i+1) << endl;
+
+                        cout << "  cube: ";
+                        for (auto &l : *j)
+                            cout << model.stringOfLit(l) << " ";
+                        cout << endl;
+
+                        cout << "  pushed clause: ";
+                        for (auto &l : core)
+                            cout << model.stringOfLit(~l) << " ";
+                        cout << endl;
+                    }
+
+                    addCube(i+1, core, core.size() < j->size(), true);
+
+                    CubeSet::iterator tmp = j;
+                    ++j;
+                    fr.borderCubes.erase(tmp);
+                }
+                else {
+                    ++j;
+                }
+            }
+
+            // ✅ Fixpoint detection
+            if (fr.borderCubes.empty()) {
+                cout << "\n*** FIXPOINT REACHED at F" << i << " ***" << endl;
+                printAllFrames("FINAL FRAMES");
+                return true;
+            }
+        }
+
+        // 3. Simplify
+        for (size_t i = 1; i <= k+1; ++i)
+            frames[i].consecution->simplify();
+
+        lifts->simplify();
+
         if (verbose > 1)
-          cout << i << " " << ckeep << " " << cprop << " " << cdrop << endl;
-        if (fr.borderCubes.empty())
-          return true;
-      }
-      // 3. simplify frames
-      for (size_t i = trivial ? k : 1; i <= k+1; ++i)
-        frames[i].consecution->simplify();
-      lifts->simplify();
-      return false;
+            printAllFrames("AFTER PROPAGATE");
+
+        return false;
     }
 
     int nQuery, nCTI, nCTG, nmic;
