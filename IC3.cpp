@@ -183,7 +183,10 @@ namespace IC3 {
 
             // Case 1: IC3 actually learned clauses
             if (!frames[k+1].clauses.empty()) {
-              printFinalInvariant(k+1);
+              
+              printFinalInvariant(k+1);               // your stored IC3 clauses
+              printSolverInvariant(frames[k].consecution); // full inductive invariant
+
             }
             // Case 2: IC3 learned nothing → extract from T
             else {
@@ -353,6 +356,24 @@ namespace IC3 {
         delete tmp;
       }
     }
+
+  void printSolverInvariant(Minisat::Solver* slv) {
+      cout << "=== FULL INVARIANT (solver clauses) ===" << endl;
+
+      for (Minisat::ClauseIterator c = slv->clausesBegin();
+          c != slv->clausesEnd(); ++c) {
+
+          const Minisat::Clause& cls = *c;
+
+          cout << "(";
+          for (int i = 0; i < cls.size(); ++i) {
+              Minisat::Lit lit = cls[i];
+              cout << model.stringOfLit(lit);
+              if (i + 1 < cls.size()) cout << " ∨ ";
+          }
+          cout << ")" << endl;
+      }
+  }
 
   void printFinalInvariant(size_t level) {
     cout << "=== FINAL INVARIANT (F" << level << ") ===" << endl;
