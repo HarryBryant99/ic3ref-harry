@@ -332,13 +332,10 @@ namespace IC3 {
 
             Minisat::Solver* tmp = model.newSolver();
 
-            // Load transition relation
-            bool old = model.printTransition;
-            model.printTransition = false;
+            // Load transition relation (no print toggling anymore)
             model.loadTransitionRelation(*tmp);
-            model.printTransition = old;
 
-            // Add all clauses from final frame (IC3 invariant)
+            // Add IC3 clauses (final frame)
             for (auto &c : fr.clauses) {
                 Minisat::vec<Minisat::Lit> cls;
                 for (auto &lit : c)
@@ -346,21 +343,20 @@ namespace IC3 {
                 tmp->addClause_(cls);
             }
 
-            // Check if latch can be TRUE in next state
+            // --- Check if l' is reachable ---
             Minisat::Lit lp = model.primeLit(v.lit(false));  // l'
-
             bool sat_true = tmp->solve(lp);
 
-            // Check if latch can be FALSE in next state
+            // --- Check if ~l' is reachable ---
             Minisat::Lit ln = model.primeLit(v.lit(true));   // ~l'
-
             bool sat_false = tmp->solve(ln);
 
             delete tmp;
 
-            // Interpret results
+            // --- Interpret results ---
+
             if (!sat_true) {
-                // l' is impossible → ~l invariant
+                // l' impossible → ~l invariant
                 cout << "~" << v.name()
                     << "  [aig=" << model.aigerLitOf(v.lit(true)) << "]"
                     << endl;
@@ -368,7 +364,7 @@ namespace IC3 {
             }
 
             if (!sat_false) {
-                // ~l' is impossible → l invariant
+                // ~l' impossible → l invariant
                 cout << v.name()
                     << "  [aig=" << model.aigerLitOf(v.lit(false)) << "]"
                     << endl;
