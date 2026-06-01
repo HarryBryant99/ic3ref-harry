@@ -379,18 +379,24 @@ namespace IC3 {
     set<string> seen;
 
     for (auto &c : fr.clauses) {
-      stringstream key;
-
       cout << "(";
-      for (size_t j = 0; j < c.size(); ++j) {
-        string litStr = model.stringOfLit(c[j]);
-        key << litStr << " ";
 
-        cout << litStr;
-        if (j + 1 < c.size()) cout << " ∨ ";
+      for (size_t j = 0; j < c.size(); ++j) {
+
+          // human-readable
+          string name = model.stringOfLit(c[j]);
+
+          // AIGER format
+          unsigned int aig = model.aigerLitOf(c[j]);
+
+          cout << name << "[" << aig << "]";
+
+          if (j + 1 < c.size()) cout << " ∨ ";
       }
+
       cout << ")" << endl;
     }
+
   }
 
   void printAllFrames(const string& title = "") {
