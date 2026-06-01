@@ -995,13 +995,14 @@ namespace IC3 {
                     ++j;
                 }
             }
-
-            // ✅ Fixpoint detection
-            if (fr.borderCubes.empty()) {
-                cout << "\n*** FIXPOINT REACHED at F" << i << " ***" << endl;
+           
+            if (frames[i].clauses == frames[i+1].clauses) {
+                cout << "\n*** FIXPOINT REACHED: F" << i
+                    << " == F" << (i+1) << " ***" << endl;
                 printAllFrames("FINAL FRAMES");
                 return true;
             }
+
         }
 
         // 3. Simplify
