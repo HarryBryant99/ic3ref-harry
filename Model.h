@@ -87,7 +87,6 @@ typedef set<Minisat::Lit> LitSet;
 // variables of any solver created through newSolver().
 class Model {
 public:
-
   // Construct a model from a vector of variables, indices indicating
   // divisions between variable types, constraints, next-state
   // functions, the error, and the AND table, closely reflecting the
@@ -117,12 +116,6 @@ public:
   }
   ~Model();
 
-  unsigned int aigerLitOf(Minisat::Lit lit) const {
-    unsigned int v = Minisat::var(lit);
-    unsigned int sign = Minisat::sign(lit) ? 1 : 0;
-    return 2 * v + sign;
-  }
-
   // Returns the Var of the given Minisat::Lit.
   const Var & varOfLit(Minisat::Lit lit) const {
     Minisat::Var v = Minisat::var(lit);
@@ -137,8 +130,6 @@ public:
     ss << varOfLit(lit).name();
     return ss.str();
   }
-
-  const LitVec& getInit() const { return init; }
 
   // Returns the primed Var/Minisat::Lit for the given
   // Var/Minisat::Lit.  Once lockPrimes() is called, primeVar() fails

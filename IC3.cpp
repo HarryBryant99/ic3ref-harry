@@ -1,5 +1,5 @@
 /*********************************************************************
-/Copyright (c) 2013, Aaron Bradley
+Copyright (c) 2013, Aaron Bradley
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -163,29 +163,20 @@ namespace IC3 {
     bool check() {
       startTime = time();  // stats
       while (true) {
-
-        extend();
-
-        if (verbose > 1)
-            printAllFrames("AFTER EXTEND");
-
-        if (!strengthen())
-            return false;
-
-        if (verbose > 1)
-            printAllFrames("AFTER STRENGTHEN");
-
+        if (verbose > 1) cout << "Level " << k << endl;
+        extend();                         // push frontier frame
+        if (!strengthen()) return false;  // strengthen to remove bad successors
+        
         if (propagate()) {
 
-            cout << "\n===== FINAL INVARIANT =====" << endl;
-            
-            printFinalInvariant(k+1);
-            extractReachableInvariant();
+          cout << "\n=== INVARIANT FROM ALL CUBES ===" << endl;
+          printInvariantFromAllCubes();
 
-            return true;
+          return true;
         }
 
-        ++k;                             // increment frontier
+        printStats();
+        ++k;                              // increment frontier
       }
     }
 
@@ -310,188 +301,13 @@ namespace IC3 {
     struct Frame {
       size_t k;             // steps from initial state
       CubeSet borderCubes;  // additional cubes in this and previous frames
-      vector<LitVec> clauses; // Clauses used
       Minisat::Solver * consecution;
     };
     vector<Frame> frames;
+    vector<LitVec> allCubes;
 
     Minisat::Solver * lifts;
     Minisat::Lit notInvConstraints;
-
-    void extractReachableInvariant() {
-        cout << "\n=== REACHABLE STATE INVARIANT ===" << endl;
-
-        // Use final frame
-        Frame &fr = frames[k];
-
-        size_t count = 0;
-
-        for (auto it = model.beginLatches(); it != model.endLatches(); ++it) {
-
-            const Var &v = *it;
-
-            Minisat::Solver* tmp = model.newSolver();
-
-            // Load transition relation (no print toggling anymore)
-            model.loadTransitionRelation(*tmp);
-
-            // Add IC3 clauses (final frame)
-            for (auto &c : fr.clauses) {
-                Minisat::vec<Minisat::Lit> cls;
-                for (auto &lit : c)
-                    cls.push(lit);
-                tmp->addClause_(cls);
-            }
-
-            // --- Check if l' is reachable ---
-            Minisat::Lit lp = model.primeLit(v.lit(false));  // l'
-            bool sat_true = tmp->solve(lp);
-
-            // --- Check if ~l' is reachable ---
-            Minisat::Lit ln = model.primeLit(v.lit(true));   // ~l'
-            bool sat_false = tmp->solve(ln);
-
-            delete tmp;
-
-            // --- Interpret results ---
-
-            if (!sat_true) {
-                // l' impossible → ~l invariant
-                cout << "~" << v.name()
-                    << "  [aig=" << model.aigerLitOf(v.lit(true)) << "]"
-                    << endl;
-                count++;
-            }
-
-            if (!sat_false) {
-                // ~l' impossible → l invariant
-                cout << v.name()
-                    << "  [aig=" << model.aigerLitOf(v.lit(false)) << "]"
-                    << endl;
-                count++;
-            }
-        }
-
-        if (count == 0) {
-            cout << "(no additional inductive literals found)" << endl;
-        }
-    }
-
-    void extractInvariantIC3Style() {
-      cout << "\n=== IC3-derived invariant ===" << endl;
-
-      for (auto it = model.beginLatches(); it != model.endLatches(); ++it) {
-
-        Minisat::Solver* tmp = model.newSolver();
-
-        // Load transition relation only
-        model.loadTransitionRelation(*tmp);
-
-        // Check if variable can ever become true in next step
-        Minisat::Lit lp = model.primeLit(it->lit(false));
-
-        bool sat = tmp->solve(lp);
-
-        if (!sat) {
-          cout << "~" << it->name() << endl;
-        }
-
-        delete tmp;
-      }
-    }
-
-  void printSolverInvariant(Minisat::Solver* slv) {
-      cout << "=== FULL INVARIANT (solver clauses) ===" << endl;
-
-      for (Minisat::ClauseIterator c = slv->clausesBegin();
-          c != slv->clausesEnd(); ++c) {
-
-          const Minisat::Clause& cls = *c;
-
-          cout << "(";
-          for (int i = 0; i < cls.size(); ++i) {
-              Minisat::Lit lit = cls[i];
-              cout << model.stringOfLit(lit);
-              if (i + 1 < cls.size()) cout << " ∨ ";
-          }
-          cout << ")" << endl;
-      }
-  }
-
-  void printFinalInvariant(size_t level) {
-    cout << "=== FINAL INVARIANT (F" << level << ") ===" << endl;
-
-    if (level >= frames.size()) {
-      cout << "(invalid level)" << endl;
-      return;
-    }
-
-    Frame &fr = frames[level];
-
-    if (fr.clauses.empty()) {
-      cout << "(no learned clauses — invariant from T)" << endl;
-      return;
-    }
-
-    // optionally remove duplicates
-    set<string> seen;
-
-    for (auto &c : fr.clauses) {
-      cout << "(";
-
-      for (size_t j = 0; j < c.size(); ++j) {
-
-          // human-readable
-          string name = model.stringOfLit(c[j]);
-
-          // AIGER format
-          unsigned int aig = model.aigerLitOf(c[j]);
-
-          cout << name << "[" << aig << "]";
-
-          if (j + 1 < c.size()) cout << " ∨ ";
-      }
-
-      cout << ")" << endl;
-    }
-
-  }
-
-  void printAllFrames(const string& title = "") {
-      if (!title.empty())
-          cout << "\n=== " << title << " ===" << endl;
-
-      for (size_t i = 0; i < frames.size(); ++i) {
-          printFrameClauses(i);
-      }
-  }
-
-    void printFrameClauses(size_t i) {
-        cout << "=== Frame F" << i
-            << " (" << frames[i].clauses.size()
-            << " clauses) ===" << endl;
-
-        for (const auto& c : frames[i].clauses) {
-            cout << "  (";
-            for (size_t j = 0; j < c.size(); ++j) {
-                cout << model.stringOfLit(c[j]);
-                if (j + 1 < c.size()) cout << " ∨ ";
-            }
-            cout << ")" << endl;
-        }
-    }
-
-    void addClauseToFrame(Frame& fr, const LitVec& clause) {
-      // store it
-      fr.clauses.push_back(clause);
-
-      // convert to Minisat format
-      MSLitVec cls;
-      for (auto &lit : clause)
-        cls.push(lit);
-
-      fr.consecution->addClause_(cls);
-    }
 
     // Push a new Frame.
     void extend() {
@@ -504,25 +320,7 @@ namespace IC3 {
           fr.consecution->random_seed = rand();
           fr.consecution->rnd_init_act = true;
         }
-           
-        if (fr.k == 0) {
-          model.loadInitialCondition(*fr.consecution);
-
-          const LitVec& init = model.getInit();
-
-          for (auto it = init.begin(); it != init.end(); ++it) {
-            LitVec clause;
-            clause.push_back(*it);
-            fr.clauses.push_back(clause);
-          }
-
-          if (verbose > 1) {
-            cout << "[F0 initial clauses]" << endl;
-            for (auto it = init.begin(); it != init.end(); ++it)
-              cout << "  " << model.stringOfLit(*it) << endl;
-          }
-        }
-
+        if (fr.k == 0) model.loadInitialCondition(*fr.consecution);
         model.loadTransitionRelation(*fr.consecution);
       }
     }
@@ -843,6 +641,29 @@ namespace IC3 {
     }
 
     size_t earliest;  // track earliest modified level in a major iteration
+    
+    void printInvariantFromAllCubes() {
+      cout << "\n=== INVARIANT FROM ALL CUBES ===" << endl;
+
+      for (const auto& cube : allCubes) {
+
+        LitVec clause = negateCube(cube);
+
+        cout << "(";
+        for (size_t j = 0; j < clause.size(); ++j) {
+          cout << model.stringOfLit(clause[j]);
+          if (j + 1 < clause.size()) cout << " ∨ ";
+        }
+        cout << ")" << endl;
+      }
+    }
+
+    LitVec negateCube(const LitVec& cube) {
+      LitVec clause;
+      for (auto& lit : cube)
+        clause.push_back(~lit);
+      return clause;
+    }
 
     // Adds cube to frames at and below level, unless !toAll, in which
     // case only to level.
@@ -852,42 +673,18 @@ namespace IC3 {
       sort(cube.begin(), cube.end());
       pair<CubeSet::iterator, bool> rv = frames[level].borderCubes.insert(cube);
       if (!rv.second) return;
-//      if (!silent && verbose > 1) 
-//        cout << level << ": " << stringOfLitVec(cube) << endl;
-//	  cout << "[addCube] F" << level
-//    	       << " blocks: " << stringOfLitVec(cube)
-//               << endl;
+      
+      if (rv.second) {
+        allCubes.push_back(cube);   // store permanently
+      }
 
-
-		if (!silent && verbose > 1) {
-    			cout << "[addCube] F" << level << endl;
-
-			// print cube
-			cout << "  cube (blocked region): ";
-			for (LitVec::const_iterator i = cube.begin(); i != cube.end(); ++i)
-			    cout << model.stringOfLit(*i) << " ";
-			cout << endl;
-
-			// print clause = negation
-    			cout << "  clause (added):        ";
-    			for (LitVec::const_iterator i = cube.begin(); i != cube.end(); ++i)
-        			cout << model.stringOfLit(~*i) << " ";
-			cout << endl;
-		}
-
+      if (!silent && verbose > 1) 
+        cout << level << ": " << stringOfLitVec(cube) << endl;
       earliest = min(earliest, level);
       MSLitVec cls;
       cls.capacity(cube.size());
       for (LitVec::const_iterator i = cube.begin(); i != cube.end(); ++i)
         cls.push(~*i);
-
-        // store clause for printing
-        LitVec clause;
-        for (LitVec::const_iterator i = cube.begin(); i != cube.end(); ++i)
-          clause.push_back(~*i);
-
-        frames[level].clauses.push_back(clause);
-
       for (size_t i = toAll ? 1 : level; i <= level; ++i)
         frames[i].consecution->addClause(cls);
       if (toAll && !silent) updateLitOrder(cube, level);
@@ -908,60 +705,33 @@ namespace IC3 {
 
     // Process obligations according to priority.
     bool handleObligations(PriorityQueue obls) {
-        while (!obls.empty()) {
-
-            PriorityQueue::iterator obli = obls.begin();
-            Obligation obl = *obli;
-
-            if (verbose > 1) {
-                cout << "\n[obligation]" << endl;
-                cout << "  level = " << obl.level
-                    << ", depth = " << obl.depth << endl;
-
-                cout << "  state: ";
-                for (auto &l : state(obl.state).latches)
-                    cout << model.stringOfLit(l) << " ";
-                cout << endl;
-            }
-
-            LitVec core;
-            size_t predi;
-
-            if (consecution(obl.level, state(obl.state).latches,
-                            obl.state, &core, &predi)) {
-
-                if (verbose > 1) {
-                    cout << "  SUCCESS: generalized to clause: ";
-                    for (auto &l : core)
-                        cout << model.stringOfLit(~l) << " ";
-                    cout << endl;
-                }
-
-                obls.erase(obli);
-
-                size_t n = generalize(obl.level, core);
-
-                if (n <= k)
-                    obls.insert(Obligation(obl.state, n, obl.depth));
-            }
-            else if (obl.level == 0) {
-
-                cout << "\n*** COUNTEREXAMPLE FOUND ***" << endl;
-
-                cexState = predi;
-                return false;
-            }
-            else {
-
-                if (verbose > 1) {
-                    cout << "  FAILED: moving to predecessor" << endl;
-                }
-
-                obls.insert(Obligation(predi, obl.level-1, obl.depth+1));
-            }
+      while (!obls.empty()) {
+        PriorityQueue::iterator obli = obls.begin();
+        Obligation obl = *obli;
+        LitVec core;
+        size_t predi;
+        // Is the obligation fulfilled?
+        if (consecution(obl.level, state(obl.state).latches, obl.state, 
+                        &core, &predi)) {
+          // Yes, so generalize and possibly produce a new obligation
+          // at a higher level.
+          obls.erase(obli);
+          size_t n = generalize(obl.level, core);
+          if (n <= k)
+            obls.insert(Obligation(obl.state, n, obl.depth));
         }
-
-        return true;
+        else if (obl.level == 0) {
+          // No, in fact an initial state is a predecessor.
+          cexState = predi;
+          return false;
+        }
+        else {
+          ++nCTI;  // stats
+          // No, so focus on predecessor.
+          obls.insert(Obligation(predi, obl.level-1, obl.depth+1));
+        }
+      }
+      return true;
     }
 
     bool trivial;  // indicates whether strengthening was required
@@ -996,89 +766,58 @@ namespace IC3 {
     // strengthenings of the property.  See the four invariants of IC3
     // in the original paper.
     bool propagate() {
-        if (verbose > 1) cout << "\n[PROPAGATE START]" << endl;
-
-        // 1. Remove duplicates across frames
-        CubeSet all;
-
-        for (size_t i = k+1; i >= earliest; --i) {
-            Frame & fr = frames[i];
-
-            CubeSet rem, nall;
-
-            set_difference(fr.borderCubes.begin(), fr.borderCubes.end(),
-                          all.begin(), all.end(),
-                          inserter(rem, rem.end()), LitVecComp());
-
-            fr.borderCubes.swap(rem);
-
-            set_union(rem.begin(), rem.end(),
-                      all.begin(), all.end(),
-                      inserter(nall, nall.end()), LitVecComp());
-
-            all.swap(nall);
-        }
-
-        // 2. Propagate clauses
-        for (size_t i = 1; i <= k; ++i) {
-
-            Frame & fr = frames[i];
-
-            if (verbose > 1)
-                cout << "\n-- Checking propagation from F" << i << " --" << endl;
-
-            for (CubeSet::iterator j = fr.borderCubes.begin();
-                j != fr.borderCubes.end(); ) {
-
-                LitVec core;
-
-                if (consecution(i, *j, 0, &core)) {
-
-                    if (verbose > 1) {
-                        cout << "[propagate] F" << i
-                            << " -> F" << (i+1) << endl;
-
-                        cout << "  cube: ";
-                        for (auto &l : *j)
-                            cout << model.stringOfLit(l) << " ";
-                        cout << endl;
-
-                        cout << "  pushed clause: ";
-                        for (auto &l : core)
-                            cout << model.stringOfLit(~l) << " ";
-                        cout << endl;
-                    }
-
-                    addCube(i+1, core, core.size() < j->size(), true);
-
-                    CubeSet::iterator tmp = j;
-                    ++j;
-                    fr.borderCubes.erase(tmp);
-                }
-                else {
-                    ++j;
-                }
-            }
-           
-            if (frames[i].clauses == frames[i+1].clauses) {
-                cout << "\n*** FIXPOINT REACHED: F" << i
-                    << " == F" << (i+1) << " ***" << endl;
-                printAllFrames("FINAL FRAMES");
-                return true;
-            }
-
-        }
-
-        // 3. Simplify
-        for (size_t i = 1; i <= k+1; ++i)
-            frames[i].consecution->simplify();
-
-        lifts->simplify();
-
+      if (verbose > 1) cout << "propagate" << endl;
+      // 1. clean up: remove c in frame i if c appears in frame j when i < j
+      CubeSet all;
+      for (size_t i = k+1; i >= earliest; --i) {
+        Frame & fr = frames[i];
+        CubeSet rem, nall;
+        set_difference(fr.borderCubes.begin(), fr.borderCubes.end(),
+                       all.begin(), all.end(),
+                       inserter(rem, rem.end()), LitVecComp());
         if (verbose > 1)
-            printAllFrames("AFTER PROPAGATE");
-
-        return false;
+          cout << i << " " << fr.borderCubes.size() << " " << rem.size() << " ";
+        fr.borderCubes.swap(rem);
+        set_union(rem.begin(), rem.end(),
+                  all.begin(), all.end(), 
+                  inserter(nall, nall.end()), LitVecComp());
+        all.swap(nall);
+        for (CubeSet::const_iterator i = fr.borderCubes.begin(); 
+             i != fr.borderCubes.end(); ++i)
+          assert (all.find(*i) != all.end());
+        if (verbose > 1)
+          cout << all.size() << endl;
+      }
+      // 2. check if each c in frame i can be pushed to frame j
+      for (size_t i = trivial ? k : 1; i <= k; ++i) {
+        int ckeep = 0, cprop = 0, cdrop = 0;
+        Frame & fr = frames[i];
+        for (CubeSet::iterator j = fr.borderCubes.begin(); 
+             j != fr.borderCubes.end();) {
+          LitVec core;
+          if (consecution(i, *j, 0, &core)) {
+            ++cprop;
+            // only add to frame i+1 unless the core is reduced
+            addCube(i+1, core, core.size() < j->size(), true);
+            CubeSet::iterator tmp = j;
+            ++j;
+            fr.borderCubes.erase(tmp);
+          }
+          else {
+            ++ckeep;
+            ++j;
+          }
+        }
+        if (verbose > 1)
+          cout << i << " " << ckeep << " " << cprop << " " << cdrop << endl;
+        if (fr.borderCubes.empty())
+          return true;
+      }
+      // 3. simplify frames
+      for (size_t i = trivial ? k : 1; i <= k+1; ++i)
+        frames[i].consecution->simplify();
+      lifts->simplify();
+      return false;
     }
 
     int nQuery, nCTI, nCTG, nmic;
